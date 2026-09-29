@@ -32,7 +32,7 @@ export default function MainMenu({ onModeSelect }: MainMenuProps) {
         番剧评分对战
       </h1>
       <p className="mt-3 max-w-xl text-sm sm:text-base text-muted-foreground">
-        随机抽取两部番剧的封面，挑战你的眼力——选出 Bangumi 评分更高的一部！支持时间与评分人数筛选，单人挑战或好友联机对战。
+        随机抽取两部番剧的封面，挑战你的眼力——选出 Bangumi 评分更高的一部！单人血量制生存赛 + 好友联机对战，支持年份 / 评分区间 / 评分人数筛选。
       </p>
 
       {/* Mode cards */}
@@ -48,7 +48,7 @@ export default function MainMenu({ onModeSelect }: MainMenuProps) {
           <User className="w-8 h-8 mb-3" />
           <h3 className="text-xl font-bold">单人挑战</h3>
           <p className="mt-1 text-sm text-rose-50/90">
-            10 轮闯关，连续答对得高分，挑战你的最高纪录。
+            3 滴血生存赛，连对 10 题回 1 血，看你能撑多少关。
           </p>
           <div className="mt-4 text-xs font-medium opacity-90 flex items-center gap-1">
             开始游戏 →
@@ -83,9 +83,10 @@ export default function MainMenu({ onModeSelect }: MainMenuProps) {
         <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
           <li>第 1 题随机抽取两部番剧的封面与基本信息（评分在揭晓前完全隐藏）。</li>
           <li>第 2 题起进入链式模式：上题的 B 变为新的 A，再抽一个新 B；A 角落会显示「上题B」标识。</li>
-          <li>根据你的判断，点击你认为评分更高的一部。正确得 +10 分（连击额外加成），错误扣 3 分。</li>
+          <li>单人模式为血量制：初始 3 滴血，答错扣 1 滴，血量耗尽即结束。</li>
+          <li>每连对 10 题可回复 1 滴血（不超出上限）；正确还额外得 +10 分（连击加成）。</li>
           <li>可调整筛选：年份范围 / Bangumi 评分区间 / 最低评分人数。</li>
-          <li>单人模式共 10 轮；多人模式双方实时对战，先得高分者胜。</li>
+          <li>多人模式仍为 10 题，双方实时对战，先得高分者胜。</li>
         </ol>
       </div>
     </motion.div>

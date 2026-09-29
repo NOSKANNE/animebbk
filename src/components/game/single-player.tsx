@@ -2,7 +2,18 @@
 
 import { useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Flame, Trophy, Loader2, RefreshCw, Star } from 'lucide-react';
+import {
+  ArrowLeft,
+  Flame,
+  Heart,
+  HeartCrack,
+  Loader2,
+  RefreshCw,
+  Star,
+  Skull,
+  Plus,
+  Activity,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -15,20 +26,27 @@ interface SinglePlayerProps {
   onExit: () => void;
 }
 
+const HEAL_THRESHOLD = 10;
+
 export default function SinglePlayer({ onExit }: SinglePlayerProps) {
   const {
     filters,
     setFilters,
     round,
-    totalRounds,
     score,
     streak,
     bestStreak,
+    hp,
+    maxHp,
+    correctCount,
+    wrongCount,
+    correctSinceLastHeal,
     currentPair,
     aIsCarryOver,
     loadingPair,
     showResult,
     lastResult,
+    gameOver,
     startGame,
     loadNextPair,
     pick,
@@ -44,13 +62,18 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
 
   // Auto-start when component mounts.
   useEffect(() => {
-    if (round === 0 && !currentPair && !loadingPair && !showResult) {
+    if (
+      round === 0 &&
+      !currentPair &&
+      !loadingPair &&
+      !showResult &&
+      !gameOver
+    ) {
       handleStart();
     }
   }, [handleStart]);
 
   const handleNext = () => {
-    if (round >= totalRounds) return;
     void loadNextPair().catch((err) => {
       toast.error(err.message || '加载下一题失败');
     });
@@ -70,68 +93,99 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
     handleStart();
   };
 
-  // ---- Finished view ----------------------------------------------
-  if (round >= totalRounds && !currentPair) {
-    const maxScore = 10 * totalRounds + 9 * 2; // approx
-    const percent = Math.min(100, (score / maxScore) * 100);
-    let verdict = '还需努力！';
-    let verdictColor = 'text-rose-600';
-    if (score >= 100) {
-      verdict = '神级判断力！';
-      verdictColor = 'text-amber-500';
-    } else if (score >= 70) {
-      verdict = '老练的番剧迷';
-      verdictColor = 'text-rose-500';
-    } else if (score >= 40) {
+  // ---- Game over view ---------------------------------------------
+  if (gameOver && !currentPair) {
+    const accuracy =
+      correctCount + wrongCount > 0
+        ? (correctCount / (correctCount + wrongCount)) * 100
+        : 0;
+    let verdict = '初出茅庐';
+    let verdictColor = 'text-rose-300';
+    if (round >= 30) {
+      verdict = '番剧鉴赏大师！';
+      verdictColor = 'text-amber-300';
+    } else if (round >= 20) {
+      verdict = '资深老饕';
+      verdictColor = 'text-amber-200';
+    } else if (round >= 10) {
       verdict = '不错的眼力';
-      verdictColor = 'text-pink-500';
+      verdictColor = 'text-rose-200';
+    } else if (round >= 5) {
+      verdict = '渐入佳境';
+      verdictColor = 'text-rose-200';
     }
 
     return (
       <div className="max-w-2xl mx-auto py-6 px-4">
-        <Card className="overflow-hidden border-amber-200 dark:border-amber-900/40">
-          <div className="bg-gradient-to-br from-amber-500 via-rose-500 to-pink-600 p-8 text-center text-white">
+        <Card className="overflow-hidden border-rose-300 dark:border-rose-900/60">
+          <div className="bg-gradient-to-br from-rose-700 via-red-700 to-rose-900 p-8 text-center text-white">
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
             >
-              <Trophy className="w-16 h-16 mx-auto mb-3 drop-shadow-lg" />
+              <Skull className="w-16 h-16 mx-auto mb-3 drop-shadow-lg" />
               <p className="text-sm uppercase tracking-wider opacity-90">
-                本局结果
+                血量耗尽
               </p>
-              <h2 className="mt-1 text-5xl font-extrabold tabular-nums drop-shadow">
-                {score}
+              <h2 className="mt-1 text-3xl font-extrabold drop-shadow">
+                本局结束
               </h2>
-              <p className="mt-1 text-sm opacity-90">/ 满分约 {maxScore}</p>
-              <p className={`mt-3 text-lg font-bold ${verdictColor}`}>
+              <p className={`mt-3 text-xl font-bold ${verdictColor}`}>
                 {verdict}
               </p>
             </motion.div>
           </div>
           <CardContent className="p-6 space-y-4">
-            <div>
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>得分进度</span>
-                <span>{percent.toFixed(0)}%</span>
-              </div>
-              <Progress value={percent} className="h-2" />
-            </div>
+            {/* Key stats */}
             <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="rounded-lg bg-muted/50 p-3">
-                <div className="text-xs text-muted-foreground">最高连击</div>
-                <div className="text-2xl font-bold tabular-nums flex items-center justify-center gap-1">
-                  <Flame className="w-5 h-5 text-orange-500" />
+              <div className="rounded-lg bg-rose-50 dark:bg-rose-950/20 p-4">
+                <div className="text-xs text-muted-foreground">存活题数</div>
+                <div className="mt-1 text-3xl font-extrabold tabular-nums text-rose-600 dark:text-rose-300">
+                  {round}
+                </div>
+              </div>
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 p-4">
+                <div className="text-xs text-muted-foreground">总得分</div>
+                <div className="mt-1 text-3xl font-extrabold tabular-nums text-amber-600 dark:text-amber-300 flex items-center justify-center gap-1">
+                  <Star className="w-5 h-5 fill-current" />
+                  {score}
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed stats */}
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-md bg-green-50 dark:bg-green-950/20 p-2">
+                <div className="text-muted-foreground">答对</div>
+                <div className="text-base font-bold text-green-700 dark:text-green-300 tabular-nums">
+                  {correctCount}
+                </div>
+              </div>
+              <div className="rounded-md bg-red-50 dark:bg-red-950/20 p-2">
+                <div className="text-muted-foreground">答错</div>
+                <div className="text-base font-bold text-red-700 dark:text-red-300 tabular-nums">
+                  {wrongCount}
+                </div>
+              </div>
+              <div className="rounded-md bg-orange-50 dark:bg-orange-950/20 p-2">
+                <div className="text-muted-foreground">最高连击</div>
+                <div className="text-base font-bold text-orange-700 dark:text-orange-300 tabular-nums flex items-center justify-center gap-0.5">
+                  <Flame className="w-3.5 h-3.5" />
                   {bestStreak}
                 </div>
               </div>
-              <div className="rounded-lg bg-muted/50 p-3">
-                <div className="text-xs text-muted-foreground">完成题数</div>
-                <div className="text-2xl font-bold tabular-nums">
-                  {totalRounds}
-                </div>
-              </div>
             </div>
+
+            {/* Accuracy */}
+            <div>
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                <span>答题准确率</span>
+                <span className="tabular-nums">{accuracy.toFixed(0)}%</span>
+              </div>
+              <Progress value={accuracy} className="h-2" />
+            </div>
+
             <div className="flex gap-2">
               <Button
                 onClick={handleRestart}
@@ -152,6 +206,11 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
   }
 
   // ---- Playing view -----------------------------------------------
+  // HP bar fill: 0..maxHp
+  const hpPercent = (hp / maxHp) * 100;
+  const healProgress = (correctSinceLastHeal / HEAL_THRESHOLD) * 100;
+  const hpLow = hp <= 1;
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-4 space-y-4">
       {/* Top bar */}
@@ -165,30 +224,93 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
           <ArrowLeft className="w-4 h-4 mr-1" />
           退出
         </Button>
-        <div className="flex items-center gap-3 text-sm">
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-200">
+        <div className="flex items-center gap-2 text-sm">
+          {/* Score chip */}
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200">
             <Star className="w-3.5 h-3.5 fill-current" />
             <span className="font-bold tabular-nums">{score}</span>
           </div>
+          {/* Streak chip */}
           {streak > 0 && (
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200">
               <Flame className="w-3.5 h-3.5" />
               <span className="font-bold tabular-nums">x{streak}</span>
             </div>
           )}
+          {/* Round counter (no total) */}
           <div className="text-muted-foreground text-xs">
-            第 <span className="font-bold text-foreground">{round}</span> /{' '}
-            {totalRounds} 题
+            第 <span className="font-bold text-foreground">{round}</span> 题
           </div>
         </div>
       </div>
 
-      {/* Progress */}
-      <Progress value={(round / totalRounds) * 100} className="h-1" />
+      {/* HP bar with hearts */}
+      <div
+        className={
+          'rounded-xl p-3 border transition-colors ' +
+          (hpLow
+            ? 'border-red-300 bg-red-50/80 dark:bg-red-950/30 dark:border-red-800/60'
+            : 'border-rose-200 bg-rose-50/60 dark:bg-rose-950/20 dark:border-rose-800/40')
+        }
+      >
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-rose-700 dark:text-rose-200">
+            <Activity className="w-3.5 h-3.5" />
+            血量
+          </div>
+          {/* Heart icons row */}
+          <div className="flex items-center gap-0.5">
+            {Array.from({ length: maxHp }).map((_, i) => {
+              const filled = i < hp;
+              return filled ? (
+                <motion.span
+                  key={i}
+                  initial={{ scale: 0.85 }}
+                  animate={{ scale: 1 }}
+                  className="inline-flex"
+                >
+                  <Heart className="w-5 h-5 fill-rose-500 text-rose-500 drop-shadow" />
+                </motion.span>
+              ) : (
+                <HeartCrack
+                  key={i}
+                  className="w-5 h-5 text-rose-300 dark:text-rose-700/60"
+                />
+              );
+            })}
+          </div>
+        </div>
+        <Progress
+          value={hpPercent}
+          className={
+            'h-1.5 ' +
+            (hpLow
+              ? '[&_[data-slot=progress-indicator]]:bg-red-500'
+              : '[&_[data-slot=progress-indicator]]:bg-rose-500')
+          }
+        />
+        {/* Heal progress sub-bar */}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex-1">
+            <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5">
+              <span>连对回血进度</span>
+              <span className="tabular-nums">
+                {correctSinceLastHeal} / {HEAL_THRESHOLD}
+              </span>
+            </div>
+            <Progress value={healProgress} className="h-1" />
+          </div>
+          {correctSinceLastHeal >= HEAL_THRESHOLD - 1 && (
+            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 animate-pulse">
+              即将回血！
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Filter bar */}
       <FilterBar
-        key={`${filters.yearStart}-${filters.yearEnd}-${filters.minRatingCount}`}
+        key={`${filters.yearStart}-${filters.yearEnd}-${filters.minRatingCount}-${filters.minScore}-${filters.maxScore}`}
         filters={filters}
         onChange={setFilters}
         onApply={handleApplyFilters}
@@ -249,25 +371,66 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
               <Card
                 className={
                   lastResult.correct
-                    ? 'border-green-300 bg-green-50/60 dark:bg-green-950/20 dark:border-green-800/40'
+                    ? lastResult.healed
+                      ? 'border-emerald-300 bg-emerald-50/70 dark:bg-emerald-950/20 dark:border-emerald-800/40'
+                      : 'border-green-300 bg-green-50/60 dark:bg-green-950/20 dark:border-green-800/40'
                     : 'border-red-300 bg-red-50/60 dark:bg-red-950/20 dark:border-red-800/40'
                 }
               >
                 <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <p
-                      className={
-                        'text-sm font-bold ' +
-                        (lastResult.correct
-                          ? 'text-green-700 dark:text-green-300'
-                          : 'text-red-700 dark:text-red-300')
-                      }
-                    >
-                      {lastResult.correct
-                        ? '🎉 答对了！'
-                        : '差一点，再接再厉'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                  <div className="space-y-1">
+                    {/* Headline */}
+                    <div className="flex items-center gap-2">
+                      <p
+                        className={
+                          'text-sm font-bold ' +
+                          (lastResult.correct
+                            ? lastResult.healed
+                              ? 'text-emerald-700 dark:text-emerald-300'
+                              : 'text-green-700 dark:text-green-300'
+                            : 'text-red-700 dark:text-red-300')
+                        }
+                      >
+                        {lastResult.correct
+                          ? lastResult.healed
+                            ? '答对 + 回血！'
+                            : '答对了！'
+                          : '答错了，扣 1 滴血'}
+                      </p>
+                      {/* HP delta chip */}
+                      <span
+                        className={
+                          'inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-bold rounded-full tabular-nums ' +
+                          (lastResult.hpDelta > 0
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+                            : lastResult.hpDelta < 0
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200'
+                              : 'bg-muted text-muted-foreground')
+                        }
+                      >
+                        {lastResult.hpDelta > 0 ? (
+                          <>
+                            <Plus className="w-3 h-3" />
+                            <Heart className="w-3 h-3 fill-current" />
+                            1
+                          </>
+                        ) : lastResult.hpDelta < 0 ? (
+                          <>
+                            <HeartCrack className="w-3 h-3" />
+                            1
+                          </>
+                        ) : null}
+                      </span>
+                      {/* Score chip (only on correct) */}
+                      {lastResult.scoreDelta > 0 && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200 tabular-nums">
+                          <Star className="w-3 h-3 fill-current" />
+                          +{lastResult.scoreDelta}
+                        </span>
+                      )}
+                    </div>
+                    {/* Sub-line: correct answer + remaining HP */}
+                    <p className="text-xs text-muted-foreground">
                       正确答案：
                       <span className="font-medium">
                         {lastResult.correctId === lastResult.animeA.id
@@ -276,12 +439,26 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
                           : lastResult.animeB.name_cn ||
                             lastResult.animeB.name}
                       </span>
-                      {'  '}
-                      评分{' '}
+                      {'  '}评分{' '}
                       {(lastResult.correctId === lastResult.animeA.id
                         ? lastResult.animeA.score
                         : lastResult.animeB.score
                       ).toFixed(1)}
+                      {lastResult.healed && (
+                        <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                          · 连对 {HEAL_THRESHOLD} 题，恢复 1 滴血！
+                        </span>
+                      )}
+                      {!lastResult.correct && hp > 0 && (
+                        <span className="ml-1 text-red-600 dark:text-red-400 font-medium">
+                          · 剩余 {hp} 滴血
+                        </span>
+                      )}
+                      {!lastResult.correct && hp <= 0 && (
+                        <span className="ml-1 text-red-700 dark:text-red-300 font-bold">
+                          · 血量耗尽，本局结束
+                        </span>
+                      )}
                     </p>
                   </div>
                   <Button
@@ -289,7 +466,7 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
                     className="bg-rose-600 hover:bg-rose-700 text-white"
                     size="sm"
                   >
-                    {round >= totalRounds ? '查看战绩' : '下一题'}
+                    {hp <= 0 ? '查看战绩' : '下一题'}
                   </Button>
                 </CardContent>
               </Card>
