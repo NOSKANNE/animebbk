@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Star, Users, Trophy, X, Check } from 'lucide-react';
+import { Star, Users, Trophy, X, Check, Repeat } from 'lucide-react';
 import type { AnimeListItem } from '@/lib/bangumi';
 
 interface AnimeCardProps {
@@ -13,6 +13,8 @@ interface AnimeCardProps {
   isPicked?: boolean;
   disabled?: boolean;
   loading?: boolean;
+  /** True if this card was carried over from the previous round (chain mode). */
+  isCarryOver?: boolean;
 }
 
 export default function AnimeCard({
@@ -24,6 +26,7 @@ export default function AnimeCard({
   isPicked = false,
   disabled = false,
   loading = false,
+  isCarryOver = false,
 }: AnimeCardProps) {
   const displayName = anime.name_cn || anime.name || '未知番剧';
   const shortDate = anime.date ? anime.date.slice(0, 7) : '—';
@@ -59,8 +62,17 @@ export default function AnimeCard({
         )}
 
         {/* Side label */}
-        <div className="absolute top-2 left-2 px-2 py-0.5 text-xs font-bold rounded-full bg-black/60 text-white backdrop-blur-sm">
-          {side}
+        <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-full bg-black/60 text-white backdrop-blur-sm">
+          <span>{side}</span>
+          {isCarryOver && (
+            <span
+              className="flex items-center gap-0.5 pl-1 border-l border-white/30"
+              title="本题 A 来自上题的 B"
+            >
+              <Repeat className="w-3 h-3" />
+              上题B
+            </span>
+          )}
         </div>
 
         {/* Rating count badge — shown only after reveal (otherwise it's a popularity hint) */}

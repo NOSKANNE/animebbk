@@ -44,6 +44,7 @@ interface RoomState {
   scores: Record<string, number>
   players: PlayerInfo[]
   pair: AnimeListItem[] | null
+  aIsCarryOver: boolean
   picks: Record<string, { animeId: number; picked: boolean }>
 }
 
@@ -521,6 +522,7 @@ export default function Multiplayer({ onExit }: MultiplayerProps) {
                 }
                 isPicked={myPick === pendingPair[0].id}
                 disabled={!!myPick}
+                isCarryOver={roomState?.aIsCarryOver ?? false}
               />
               <AnimeCard
                 anime={pendingPair[1]}
@@ -866,12 +868,13 @@ function MultiplayerLobby({
 
         <div className="mt-6 rounded-xl bg-rose-50 dark:bg-rose-950/10 p-4 text-xs text-muted-foreground">
           <p className="font-medium text-rose-700 dark:text-rose-200 mb-1">
-            联机玩法
+            联机玩法（链式对战）
           </p>
           <ul className="space-y-1 list-disc list-inside">
             <li>房主创建房间，得到 6 位房间号</li>
             <li>对手输入房间号加入房间</li>
-            <li>房主可调整筛选条件并开始游戏</li>
+            <li>房主可调整筛选条件（年份 / 评分区间 / 评分人数）并开始游戏</li>
+            <li>第 1 题随机抽取两部番剧；第 2 题起，上题的 B 变为 A，再补一个新 B</li>
             <li>共 10 题，先答对得 +5 速度加成，答错扣 3 分</li>
           </ul>
         </div>

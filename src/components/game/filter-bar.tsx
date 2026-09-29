@@ -34,25 +34,51 @@ export default function FilterBar({
   const [minCount, setMinCount] = useState<number>(
     filters.minRatingCount ?? 100,
   );
+  const [scoreRange, setScoreRange] = useState<[number, number]>([
+    filters.minScore ?? 1,
+    filters.maxScore ?? 10,
+  ]);
 
   const handleApply = () => {
     onChange({
       yearStart: yearRange[0],
       yearEnd: yearRange[1],
       minRatingCount: minCount,
+      minScore: scoreRange[0],
+      maxScore: scoreRange[1],
     });
     onApply();
   };
 
   const handleReset = () => {
-    const defaults: [number, number] = [2000, CURRENT_YEAR];
-    setYearRange(defaults);
+    const defaultYears: [number, number] = [2000, CURRENT_YEAR];
+    const defaultScores: [number, number] = [1, 10];
+    setYearRange(defaultYears);
     setMinCount(100);
-    onChange({ yearStart: 2000, yearEnd: CURRENT_YEAR, minRatingCount: 100 });
+    setScoreRange(defaultScores);
+    onChange({
+      yearStart: 2000,
+      yearEnd: CURRENT_YEAR,
+      minRatingCount: 100,
+      minScore: 1,
+      maxScore: 10,
+    });
   };
 
   // Build options for minRatingCount preset chips.
   const countPresets = [0, 50, 100, 500, 1000, 5000];
+
+  // Score preset chips for quick selection
+  const scorePresets: { label: string; range: [number, number] }[] = [
+    { label: '全部', range: [1, 10] },
+    { label: '低分', range: [1, 5] },
+    { label: '中分', range: [5, 7] },
+    { label: '高分', range: [7, 9] },
+    { label: '神作', range: [9, 10] },
+  ];
+
+  const isPresetActive = (preset: [number, number]) =>
+    scoreRange[0] === preset[0] && scoreRange[1] === preset[1];
 
   return (
     <Card className="border-rose-200/60 bg-rose-50/40 dark:bg-rose-950/10 dark:border-rose-900/40">
@@ -93,6 +119,56 @@ export default function FilterBar({
             <span>{MIN_YEAR}</span>
             <span>{CURRENT_YEAR}</span>
           </div>
+        </div>
+
+        {/* Score range slider */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">
+              Bangumi 评分区间
+            </Label>
+            <span className="text-xs font-medium tabular-nums text-amber-700 dark:text-amber-200">
+              {scoreRange[0].toFixed(1)} — {scoreRange[1].toFixed(1)}
+            </span>
+          </div>
+          <Slider
+            min={1}
+            max={10}
+            step={1}
+            value={scoreRange}
+            onValueChange={(v) =>
+              Array.isArray(v) &&
+              v.length === 2 &&
+              setScoreRange([v[0], v[1]])
+            }
+            disabled={disabled}
+            minStepsBetweenThumbs={1}
+            className="py-1"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {scorePresets.map((p) => {
+              const active = isPresetActive(p.range);
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setScoreRange(p.range)}
+                  className={
+                    'px-2.5 py-1 text-xs rounded-full border transition-colors disabled:opacity-50 ' +
+                    (active
+                      ? 'bg-amber-500 text-white border-amber-500'
+                      : 'bg-white dark:bg-transparent text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30')
+                  }
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            选择「低分」区间可挑战评分较低的冷门作品；区间越窄，番剧池越小，重题概率上升。
+          </p>
         </div>
 
         {/* Minimum rating count */}

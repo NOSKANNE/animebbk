@@ -31,8 +31,10 @@ export interface AnimeFilters {
   yearStart?: number;
   yearEnd?: number;
   minRatingCount?: number;
-  /** Optional explicit min/max score range, defaults to [">1"] so unrated entries are dropped */
+  /** Min score (1-10), default 1 — drops unrated entries */
   minScore?: number;
+  /** Max score (1-10), optional */
+  maxScore?: number;
 }
 
 export interface AnimeListItem {
@@ -59,7 +61,7 @@ const cache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutes per filter combo
 
 function filtersKey(f: AnimeFilters): string {
-  return `${f.yearStart ?? 'min'}-${f.yearEnd ?? 'max'}-${f.minRatingCount ?? 0}-${f.minScore ?? 1}`;
+  return `${f.yearStart ?? 'min'}-${f.yearEnd ?? 'max'}-${f.minRatingCount ?? 0}-${f.minScore ?? 1}-${f.maxScore ?? 'max'}`;
 }
 
 /**
@@ -74,13 +76,17 @@ async function fetchAnimeBatch(
   if (filters.yearStart) airDate.push(`>${filters.yearStart}-01-01`);
   if (filters.yearEnd) airDate.push(`<${filters.yearEnd}-12-31`);
 
+  // Bangumi rating filter accepts expressions like ">5", "<7"
+  const ratingExpr: string[] = [`>${filters.minScore ?? 1}`];
+  if (filters.maxScore) ratingExpr.push(`<${filters.maxScore}`);
+
   const body: Record<string, unknown> = {
     keyword: '',
     sort: 'heat',
     filter: {
       type: [2], // 2 = anime
       ...(airDate.length ? { air_date: airDate } : {}),
-      rating: [`>${filters.minScore ?? 1}`],
+      rating: ratingExpr,
     },
     size: Math.min(50, Math.max(10, size)),
   };
@@ -107,6 +113,12 @@ async function fetchAnimeBatch(
       if (!s.images?.large) return false;
       if (!s.rating || typeof s.rating.score !== 'number') return false;
       if (filters.minRatingCount && s.rating.total < filters.minRatingCount) {
+        return false;
+      }
+      // Double-check score range (Bangumi's rating filter is sometimes lenient).
+      const min = filters.minScore ?? 1;
+      const max = filters.maxScore ?? 10;
+      if (s.rating.score < min || s.rating.score > max) {
         return false;
       }
       return true;
@@ -141,13 +153,7 @@ export async function fetchAnimePool(
   // to widen the pool so less-known titles appear too.
   const [heatList, rankList] = await Promise.all([
     fetchAnimeBatch(filters, 50),
-    fetchAnimeBatch({ ...filters, minScore: filters.minScore ?? 5 }, 50).then(
-      (items) => {
-        // re-apply rating-count filter since rank sort may bring in lower-count items
-        const min = filters.minRatingCount ?? 0;
-        return items.filter((i) => i.rating_count >= min);
-      },
-    ),
+    fetchAnimeBatch(filters, 50),
   ]);
 
   // Dedupe by id, keep order (heat first).
@@ -177,11 +183,8 @@ export function pickRandomPair(pool: AnimeListItem[]): AnimeListItem[] {
     throw new Error('Not enough anime in pool for a pair');
   }
 
-  // Pick first index
   const first = Math.floor(Math.random() * pool.length);
   let second = Math.floor(Math.random() * pool.length);
-  // Guarantee a different anime, and try to pick a different score bucket
-  // so the answer is not always obvious.
   let tries = 0;
   while (second === first && tries < 10) {
     second = Math.floor(Math.random() * pool.length);
@@ -189,4 +192,26 @@ export function pickRandomPair(pool: AnimeListItem[]): AnimeListItem[] {
   }
 
   return [pool[first], pool[second]];
+}
+
+/**
+ * Pick a single random anime from the pool, optionally excluding one id.
+ * Used by the chain mode to fetch a fresh B that's different from the previous B.
+ */
+export function pickSingle(
+  pool: AnimeListItem[],
+  excludeId?: number,
+): AnimeListItem {
+  if (pool.length < 1) {
+    throw new Error('Pool is empty');
+  }
+  const candidates =
+    excludeId !== undefined && pool.length > 1
+      ? pool.filter((a) => a.id !== excludeId)
+      : pool;
+  if (candidates.length === 0) {
+    // Edge case: pool has only 1 anime and it's the excluded one.
+    return pool[0];
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }

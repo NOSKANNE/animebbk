@@ -25,6 +25,7 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
     streak,
     bestStreak,
     currentPair,
+    aIsCarryOver,
     loadingPair,
     showResult,
     lastResult,
@@ -210,6 +211,7 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
               revealed={showResult}
               isWinner={lastResult?.correctId === currentPair[0].id}
               isPicked={lastResult?.pickedId === currentPair[0].id}
+              isCarryOver={aIsCarryOver}
             />
             <AnimeCard
               anime={currentPair[1]}
