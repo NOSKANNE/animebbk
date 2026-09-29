@@ -85,11 +85,11 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/yourname/anime-battle.git
+git clone https://github.com/NOSKANNE/animebbk.git
 cd anime-battle
 ```
 
-> ⚠️ 把 `yourname/anime-battle` 替换为你实际的仓库路径。
+> ⚠️ 把 `NOSKANNE/animebbk` 替换为你实际的仓库路径。
 
 ### 2. 安装依赖
 
@@ -207,7 +207,7 @@ pm2 start "bun mini-services/multiplayer-service/dist.js" --name anime-mp
 pm2 save && pm2 startup
 
 # 3. 配置 Caddy（编辑 /etc/caddy/Caddyfile）
-# your-domain.com { ... } 参考仓库根目录的 Caddyfile
+# animebbk.example.com { ... } 参考仓库根目录的 Caddyfile
 
 sudo systemctl reload caddy
 ```
@@ -238,12 +238,12 @@ services:
 
 ```bash
 # 主站健康
-curl https://your-domain.com/api/bangumi \
+curl https://animebbk.example.com/api/bangumi \
   -X POST -H "Content-Type: application/json" \
   -d '{"count":2,"yearStart":2020,"yearEnd":2024,"minRatingCount":100}'
 
 # WebSocket 握手
-curl -i "https://your-domain.com/?XTransformPort=3003&EIO=4&transport=polling"
+curl -i "https://animebbk.example.com/?XTransformPort=3003&EIO=4&transport=polling"
 # 期望：HTTP 200 + {"sid":"...","upgrades":["websocket"]}
 ```
 
