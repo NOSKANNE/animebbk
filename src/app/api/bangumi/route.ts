@@ -28,12 +28,20 @@ export async function POST(req: NextRequest) {
     const body = (await req.json().catch(() => ({}))) as Partial<
       AnimeFilters & { count?: number; excludeIds?: number[] }
     >;
+    // Allow-list for platforms to prevent arbitrary values hitting Bangumi.
+    const ALLOWED_PLATFORMS = ['TV', 'OVA', '剧场版', 'WEB', '其他'];
+    const platforms =
+      Array.isArray(body.platforms) && body.platforms.length > 0
+        ? body.platforms.filter((p) => ALLOWED_PLATFORMS.includes(p))
+        : undefined;
+
     const filters: AnimeFilters = {
       yearStart: body.yearStart ?? undefined,
       yearEnd: body.yearEnd ?? undefined,
       minRatingCount: body.minRatingCount ?? 0,
       minScore: body.minScore ?? 1,
       maxScore: body.maxScore ?? undefined,
+      platforms,
     };
     const count = body.count === 1 ? 1 : 2;
     // Normalise excludeIds (drop non-finite numbers, dedupe).

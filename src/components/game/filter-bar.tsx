@@ -11,6 +11,15 @@ import type { AnimeFilters } from '@/lib/game-store';
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1960;
 
+// All valid Bangumi anime platforms. Order matters for UI display.
+const PLATFORM_OPTIONS: { value: string; label: string }[] = [
+  { value: 'TV', label: 'TV' },
+  { value: 'OVA', label: 'OVA' },
+  { value: '剧场版', label: '剧场版' },
+  { value: 'WEB', label: 'WEB' },
+  { value: '其他', label: '其他' },
+];
+
 interface FilterBarProps {
   filters: AnimeFilters;
   onChange: (f: AnimeFilters) => void;
@@ -38,6 +47,15 @@ export default function FilterBar({
     filters.minScore ?? 1,
     filters.maxScore ?? 10,
   ]);
+  const [platforms, setPlatforms] = useState<string[]>(
+    filters.platforms ?? [],
+  );
+
+  const togglePlatform = (p: string) => {
+    setPlatforms((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
+    );
+  };
 
   const handleApply = () => {
     onChange({
@@ -46,6 +64,7 @@ export default function FilterBar({
       minRatingCount: minCount,
       minScore: scoreRange[0],
       maxScore: scoreRange[1],
+      platforms,
     });
     onApply();
   };
@@ -56,12 +75,14 @@ export default function FilterBar({
     setYearRange(defaultYears);
     setMinCount(100);
     setScoreRange(defaultScores);
+    setPlatforms([]);
     onChange({
       yearStart: 2000,
       yearEnd: CURRENT_YEAR,
       minRatingCount: 100,
       minScore: 1,
       maxScore: 10,
+      platforms: [],
     });
   };
 
@@ -168,6 +189,43 @@ export default function FilterBar({
           </div>
           <p className="text-[11px] text-muted-foreground">
             选择「低分」区间可挑战评分较低的冷门作品；区间越窄，番剧池越小，重题概率上升。
+          </p>
+        </div>
+
+        {/* Anime platforms (multi-select chips) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">番剧类型</Label>
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-200">
+              {platforms.length === 0
+                ? '全部'
+                : `已选 ${platforms.length} 种`}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {PLATFORM_OPTIONS.map((p) => {
+              const active = platforms.includes(p.value);
+              return (
+                <button
+                  key={p.value}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => togglePlatform(p.value)}
+                  className={
+                    'px-2.5 py-1 text-xs rounded-full border transition-colors disabled:opacity-50 ' +
+                    (active
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : 'bg-white dark:bg-transparent text-purple-700 dark:text-purple-200 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30')
+                  }
+                >
+                  {active ? '✓ ' : ''}
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            可多选。不选 = 不限；选「剧场版」可挑战新海诚系列，选「OVA」会看到不少独立作品。
           </p>
         </div>
 

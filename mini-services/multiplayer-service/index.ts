@@ -51,6 +51,7 @@ interface AnimeItem {
   score: number
   rating_count: number
   rank: number
+  platform: string
   cover: string
   summary: string
 }
@@ -61,6 +62,7 @@ interface ClientFilters {
   minRatingCount?: number
   minScore?: number
   maxScore?: number
+  platforms?: string[]
 }
 
 // ---- State ----------------------------------------------------------------

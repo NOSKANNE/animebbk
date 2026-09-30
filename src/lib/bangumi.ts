@@ -17,6 +17,7 @@ export interface BangumiSubject {
   summary: string;
   nsfw: boolean;
   date: string; // YYYY-MM-DD or YYYY-MM-DD to YYYY-MM-DD
+  platform: string; // 'TV' | 'OVA' | '剧场版' | 'WEB' | '其他'
   rating: BangumiRating;
   images: {
     large: string;
@@ -35,6 +36,11 @@ export interface AnimeFilters {
   minScore?: number;
   /** Max score (1-10), optional */
   maxScore?: number;
+  /**
+   * Anime platforms to include. Empty/undefined = all.
+   * Valid values: 'TV', 'OVA', '剧场版', 'WEB', '其他'.
+   */
+  platforms?: string[];
 }
 
 export interface AnimeListItem {
@@ -45,6 +51,7 @@ export interface AnimeListItem {
   score: number;
   rating_count: number;
   rank: number;
+  platform: string; // 'TV' | 'OVA' | '剧场版' | 'WEB' | '其他'
   cover: string; // large image URL
   summary: string;
 }
@@ -61,7 +68,7 @@ const cache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutes per filter combo
 
 function filtersKey(f: AnimeFilters): string {
-  return `${f.yearStart ?? 'min'}-${f.yearEnd ?? 'max'}-${f.minRatingCount ?? 0}-${f.minScore ?? 1}-${f.maxScore ?? 'max'}`;
+  return `${f.yearStart ?? 'min'}-${f.yearEnd ?? 'max'}-${f.minRatingCount ?? 0}-${f.minScore ?? 1}-${f.maxScore ?? 'max'}-${(f.platforms ?? []).slice().sort().join(',')}`;
 }
 
 /**
@@ -117,6 +124,14 @@ async function fetchAnimeBatch(
   const data = (await res.json()) as { data?: BangumiSubject[] };
   const list = Array.isArray(data.data) ? data.data : [];
 
+  // Bangumi v0 search doesn't actually honour a `platform` filter (only
+  // type/tag/air_date/rating/rank/nsfw are supported). We filter platforms
+  // ourselves after the fetch.
+  const platformSet =
+    filters.platforms && filters.platforms.length > 0
+      ? new Set(filters.platforms)
+      : null;
+
   return list
     .filter((s) => {
       if (!s.images?.large) return false;
@@ -130,6 +145,10 @@ async function fetchAnimeBatch(
       if (s.rating.score < min || s.rating.score > max) {
         return false;
       }
+      // Apply our own platform filter (Bangumi API ignores it).
+      if (platformSet && !platformSet.has(s.platform)) {
+        return false;
+      }
       return true;
     })
     .map((s) => ({
@@ -140,6 +159,7 @@ async function fetchAnimeBatch(
       score: s.rating.score,
       rating_count: s.rating.total,
       rank: s.rating.rank,
+      platform: s.platform,
       cover: s.images.large,
       summary: s.summary,
     }));

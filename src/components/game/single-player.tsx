@@ -310,7 +310,7 @@ export default function SinglePlayer({ onExit }: SinglePlayerProps) {
 
       {/* Filter bar */}
       <FilterBar
-        key={`${filters.yearStart}-${filters.yearEnd}-${filters.minRatingCount}-${filters.minScore}-${filters.maxScore}`}
+        key={`${filters.yearStart}-${filters.yearEnd}-${filters.minRatingCount}-${filters.minScore}-${filters.maxScore}-${(filters.platforms ?? []).join(',')}`}
         filters={filters}
         onChange={setFilters}
         onApply={handleApplyFilters}

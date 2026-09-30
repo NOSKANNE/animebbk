@@ -11,6 +11,7 @@ export interface AnimeFilters {
   minRatingCount?: number;
   minScore?: number;
   maxScore?: number;
+  platforms?: string[];
 }
 
 export interface RoundResult {
@@ -75,6 +76,7 @@ const DEFAULT_FILTERS: AnimeFilters = {
   minRatingCount: 100,
   minScore: 1,
   maxScore: 10,
+  platforms: [],
 };
 
 const DEFAULT_MAX_HP = 3;

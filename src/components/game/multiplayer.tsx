@@ -453,7 +453,7 @@ export default function Multiplayer({ onExit }: MultiplayerProps) {
             </div>
 
             <FilterBar
-              key={`${filters.yearStart}-${filters.yearEnd}-${filters.minRatingCount}`}
+              key={`${filters.yearStart}-${filters.yearEnd}-${filters.minRatingCount}-${(filters.platforms ?? []).join(',')}`}
               filters={filters}
               onChange={setFilters}
               onApply={() => toast.success('筛选已更新')}
