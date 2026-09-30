@@ -66,10 +66,19 @@ function filtersKey(f: AnimeFilters): string {
 
 /**
  * Fetch a batch of anime from Bangumi v0 search endpoint.
- * Returns up to 50 items sorted by "heat" (popularity).
+ * Bangumi only returns ~10 items per request when no keyword is given,
+ * regardless of `size`. To get a diverse pool we therefore fire multiple
+ * batches with different `sort` strategies and `air_date` windows.
+ *
+ * `sort` values per Bangumi docs:
+ *   - "heat"   → by popularity (collection count) — high-rated popular shows
+ *   - "rank"   → by rank (lower rank = lower score) — low-rated / obscure shows
+ *   - "match"  → default relevance — a mix
+ *   - "score"  → by score (highest first)
  */
 async function fetchAnimeBatch(
   filters: AnimeFilters,
+  sort: 'heat' | 'rank' | 'match' | 'score',
   size: number,
 ): Promise<AnimeListItem[]> {
   const airDate: string[] = [];
@@ -82,7 +91,7 @@ async function fetchAnimeBatch(
 
   const body: Record<string, unknown> = {
     keyword: '',
-    sort: 'heat',
+    sort,
     filter: {
       type: [2], // 2 = anime
       ...(airDate.length ? { air_date: airDate } : {}),
@@ -137,8 +146,32 @@ async function fetchAnimeBatch(
 }
 
 /**
+ * Split a year range [start, end] into contiguous buckets of `bucketSize` years.
+ * Returns at most `maxBuckets` buckets.
+ */
+function splitYearRange(
+  start: number,
+  end: number,
+  bucketSize: number,
+  maxBuckets: number,
+): Array<[number, number]> {
+  if (start > end) return [];
+  const buckets: Array<[number, number]> = [];
+  for (let y = start; y <= end && buckets.length < maxBuckets; y += bucketSize) {
+    buckets.push([y, Math.min(y + bucketSize - 1, end)]);
+  }
+  return buckets;
+}
+
+/**
  * Fetch a pool of anime honouring the given filters.
- * Uses server-side caching keyed by the filter combo.
+ *
+ * Bangumi's search endpoint caps the response at ~10 items per call when no
+ * keyword is provided. To get a diverse pool (including low-rated anime when
+ * the user sets a wide score range), we split the year range into 3-year
+ * buckets and fetch each bucket with three different `sort` strategies
+ * (`heat` for popular high-rated, `rank` for low-ranked, `match` for a mix).
+ * This typically yields 30–150 unique items spanning the full score range.
  */
 export async function fetchAnimePool(
   filters: AnimeFilters,
@@ -149,20 +182,39 @@ export async function fetchAnimePool(
     return cached.items;
   }
 
-  // Sort by heat gives a popularity-ordered list. Combine with a "rank" sort
-  // to widen the pool so less-known titles appear too.
-  const [heatList, rankList] = await Promise.all([
-    fetchAnimeBatch(filters, 50),
-    fetchAnimeBatch(filters, 50),
-  ]);
+  const yearStart = filters.yearStart ?? 2000;
+  const yearEnd = filters.yearEnd ?? new Date().getFullYear();
 
-  // Dedupe by id, keep order (heat first).
+  // Split the user's year range into 3-year buckets, capped at 10 buckets
+  // to keep request count reasonable (~30 parallel fetches max).
+  const buckets = splitYearRange(yearStart, yearEnd, 3, 10);
+  const sorts: Array<'heat' | 'rank' | 'match'> = ['heat', 'rank', 'match'];
+
+  // Fire all bucket × sort combos in parallel.
+  const fetches: Promise<AnimeListItem[]>[] = [];
+  for (const [ys, ye] of buckets.length > 0 ? buckets : [[yearStart, yearEnd]]) {
+    for (const sort of sorts) {
+      fetches.push(
+        fetchAnimeBatch(
+          { ...filters, yearStart: ys, yearEnd: ye },
+          sort,
+          50,
+        ),
+      );
+    }
+  }
+  const results = await Promise.all(fetches);
+
+  // Merge + dedupe by id. The fetchAnimeBatch already filtered by score range,
+  // so we just need to dedupe.
   const seen = new Set<number>();
   const merged: AnimeListItem[] = [];
-  for (const item of [...heatList, ...rankList]) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      merged.push(item);
+  for (const batch of results) {
+    for (const item of batch) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        merged.push(item);
+      }
     }
   }
 
