@@ -12,18 +12,21 @@ export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/bangumi
- * Body: AnimeFilters & { count?: 1 | 2 }
- *   - count = 1 (default 2 if omitted):
- *     Returns { anime: AnimeListItem, poolSize: number }
- *     Optionally accepts `excludeId` to avoid returning the same anime twice
- *     (used by chain mode: fetch a fresh B different from the previous B).
- *   - count = 2 (default):
- *     Returns { pair: AnimeListItem[], poolSize: number }
+ *
+ * Body: AnimeFilters & {
+ *   count?: 1 | 2,        // how many to pick (default 2 = pair)
+ *   excludeIds?: number[], // ids of anime already seen this game; will be excluded
+ *                          // from the candidate pool. If the unseen subset is too
+ *                          // small, falls back to the full pool so the game can keep going.
+ * }
+ *
+ * count = 2 → { pair: AnimeListItem[], poolSize: number }
+ * count = 1 → { anime: AnimeListItem, poolSize: number }
  */
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json().catch(() => ({}))) as Partial<
-      AnimeFilters & { count?: number; excludeId?: number }
+      AnimeFilters & { count?: number; excludeIds?: number[] }
     >;
     const filters: AnimeFilters = {
       yearStart: body.yearStart ?? undefined,
@@ -33,6 +36,16 @@ export async function POST(req: NextRequest) {
       maxScore: body.maxScore ?? undefined,
     };
     const count = body.count === 1 ? 1 : 2;
+    // Normalise excludeIds (drop non-finite numbers, dedupe).
+    const excludeIds = Array.isArray(body.excludeIds)
+      ? Array.from(
+          new Set(
+            body.excludeIds
+              .map((n) => Number(n))
+              .filter((n) => Number.isFinite(n)),
+          ),
+        )
+      : [];
 
     // Validate ranges.
     if (
@@ -68,7 +81,7 @@ export async function POST(req: NextRequest) {
           { status: 404 },
         );
       }
-      const pair = pickRandomPair(pool);
+      const pair = pickRandomPair(pool, excludeIds);
       return NextResponse.json({ pair, poolSize: pool.length });
     } else {
       if (pool.length < 1) {
@@ -80,7 +93,7 @@ export async function POST(req: NextRequest) {
           { status: 404 },
         );
       }
-      const anime = pickSingle(pool, body.excludeId);
+      const anime = pickSingle(pool, excludeIds);
       return NextResponse.json({ anime, poolSize: pool.length });
     }
   } catch (err) {

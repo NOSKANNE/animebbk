@@ -176,42 +176,56 @@ export async function fetchAnimePool(
 }
 
 /**
- * Pick two distinct random anime from the pool.
+ * Pick two distinct random anime from the pool, excluding any anime
+ * whose id is in `excludeIds` (previously seen in the current game).
+ *
+ * If the unseen subset is too small to form a pair, falls back to the full
+ * pool so the game can keep going (the duplicate-prevention is best-effort
+ * for narrow filter pools).
  */
-export function pickRandomPair(pool: AnimeListItem[]): AnimeListItem[] {
+export function pickRandomPair(
+  pool: AnimeListItem[],
+  excludeIds: number[] = [],
+): AnimeListItem[] {
   if (pool.length < 2) {
     throw new Error('Not enough anime in pool for a pair');
   }
 
-  const first = Math.floor(Math.random() * pool.length);
-  let second = Math.floor(Math.random() * pool.length);
-  let tries = 0;
-  while (second === first && tries < 10) {
-    second = Math.floor(Math.random() * pool.length);
-    tries += 1;
+  const excludeSet = new Set(excludeIds);
+  let usePool = pool.filter((a) => !excludeSet.has(a.id));
+  if (usePool.length < 2) {
+    // Pool exhausted — fall back to full pool (will repeat).
+    usePool = pool;
   }
 
-  return [pool[first], pool[second]];
+  const firstIdx = Math.floor(Math.random() * usePool.length);
+  const first = usePool[firstIdx];
+  let secondIdx = Math.floor(Math.random() * usePool.length);
+  let tries = 0;
+  while (secondIdx === firstIdx && tries < 10) {
+    secondIdx = Math.floor(Math.random() * usePool.length);
+    tries += 1;
+  }
+  return [first, usePool[secondIdx]];
 }
 
 /**
- * Pick a single random anime from the pool, optionally excluding one id.
- * Used by the chain mode to fetch a fresh B that's different from the previous B.
+ * Pick a single random anime from the pool, excluding any anime whose id
+ * is in `excludeIds`. Falls back to the full pool if everything has been
+ * seen.
  */
 export function pickSingle(
   pool: AnimeListItem[],
-  excludeId?: number,
+  excludeIds: number[] = [],
 ): AnimeListItem {
   if (pool.length < 1) {
     throw new Error('Pool is empty');
   }
-  const candidates =
-    excludeId !== undefined && pool.length > 1
-      ? pool.filter((a) => a.id !== excludeId)
-      : pool;
+  const excludeSet = new Set(excludeIds);
+  let candidates = pool.filter((a) => !excludeSet.has(a.id));
   if (candidates.length === 0) {
-    // Edge case: pool has only 1 anime and it's the excluded one.
-    return pool[0];
+    // All seen — fall back to full pool.
+    candidates = pool;
   }
   return candidates[Math.floor(Math.random() * candidates.length)];
 }

@@ -30,6 +30,8 @@ interface Room {
   pair: AnimeItem[] | null
   /** True if pair[0] was carried over from the previous round's B (chain mode). */
   aIsCarryOver: boolean
+  /** All anime ids shown in this game so far — used to dedupe picks. */
+  seenIds: number[]
   picks: Map<string, PickInfo>
   round: number
   totalRounds: number
@@ -122,13 +124,16 @@ function emitRoomState(room: Room) {
 
 // ---- Fetch pair / single from main Next.js API ---------------------------
 
-async function fetchPair(filters: ClientFilters): Promise<AnimeItem[]> {
+async function fetchPair(
+  filters: ClientFilters,
+  excludeIds: number[] = [],
+): Promise<AnimeItem[]> {
   // The Next.js dev server runs on port 3000 internally.
   const url = `http://localhost:3000/api/bangumi`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...filters, count: 2 }),
+    body: JSON.stringify({ ...filters, count: 2, excludeIds }),
   })
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { error?: string }
@@ -142,18 +147,18 @@ async function fetchPair(filters: ClientFilters): Promise<AnimeItem[]> {
 }
 
 /**
- * Fetch a single anime, optionally excluding one id (used by chain mode
- * so the new B is different from the previous B that just became A).
+ * Fetch a single anime, optionally excluding previously-seen ids (used by
+ * chain mode so the new B is different from anything already shown this game).
  */
 async function fetchSingle(
   filters: ClientFilters,
-  excludeId?: number,
+  excludeIds: number[] = [],
 ): Promise<AnimeItem> {
   const url = `http://localhost:3000/api/bangumi`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...filters, count: 1, excludeId }),
+    body: JSON.stringify({ ...filters, count: 1, excludeIds }),
   })
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { error?: string }
@@ -244,6 +249,7 @@ io.on('connection', (socket) => {
       players: new Map(),
       pair: null,
       aIsCarryOver: false,
+      seenIds: [],
       picks: new Map(),
       round: 0,
       totalRounds: 10,
@@ -338,6 +344,7 @@ io.on('connection', (socket) => {
     room.picks.clear()
     room.pair = null
     room.aIsCarryOver = false
+    room.seenIds = []
     room.phase = 'playing'
     room.filters = data?.filters ?? {}
     clearTimers(room)
@@ -433,9 +440,11 @@ function handleDisconnect(socket: { id: string }) {
 
     io.to(`room:${roomId}`).emit('room:player_left', { playerId: socket.id })
     if (room.phase === 'playing' || room.phase === 'reveal') {
-      // Abort current round
+      // Abort current round and reset seen ids (next game starts fresh).
       room.phase = 'waiting'
       room.pair = null
+      room.aIsCarryOver = false
+      room.seenIds = []
       room.picks.clear()
       io.to(`room:${roomId}`).emit('room:error', {
         message: '对手已离开，等待新玩家加入',
@@ -483,16 +492,23 @@ async function startNextRound(room: Room) {
 
   let pair: AnimeItem[]
   if (isFirstRound) {
-    pair = await fetchPair(room.filters)
+    pair = await fetchPair(room.filters, room.seenIds)
     room.aIsCarryOver = false
+    // Track newly seen ids.
+    for (const item of pair) {
+      if (!room.seenIds.includes(item.id)) {
+        room.seenIds.push(item.id)
+      }
+    }
   } else {
     // Fetch a single new anime for B; carry previous B to A.
-    const newB = await fetchSingle(
-      room.filters,
-      previousB ? previousB.id : undefined,
-    )
+    // Pass all seen ids (which includes the carried A) as exclusions.
+    const newB = await fetchSingle(room.filters, room.seenIds)
     pair = [previousB!, newB]
     room.aIsCarryOver = true
+    if (!room.seenIds.includes(newB.id)) {
+      room.seenIds.push(newB.id)
+    }
   }
   room.pair = pair
   room.startedAt = Date.now()

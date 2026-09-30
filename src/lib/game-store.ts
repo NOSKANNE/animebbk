@@ -50,6 +50,9 @@ interface GameState {
   /** Correct answers since the last HP restore (resets at every 10). */
   correctSinceLastHeal: number;
 
+  /** All anime ids already shown in the current game — used to dedupe picks. */
+  seenIds: number[];
+
   currentPair: AnimeListItem[] | null;
   /** True if currentPair[0] was carried over from the previous round's B (chain mode). */
   aIsCarryOver: boolean;
@@ -93,6 +96,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   correctCount: 0,
   wrongCount: 0,
   correctSinceLastHeal: 0,
+  seenIds: [],
   currentPair: null,
   aIsCarryOver: false,
   loadingPair: false,
@@ -111,6 +115,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       correctCount: 0,
       wrongCount: 0,
       correctSinceLastHeal: 0,
+      seenIds: [],
       lastResult: null,
       showResult: false,
       currentPair: null,
@@ -125,6 +130,9 @@ export const useGameStore = create<GameState>((set, get) => ({
    * Round 1 fetches a fresh pair. Round >1 carries the previous B → new A,
    * then fetches a single new anime for B.
    * If HP is 0 (game over), do nothing — UI shows the game-over screen.
+   *
+   * Passes `seenIds` (all anime ids shown this game) as `excludeIds` so the
+   * API can avoid repeating the same anime across the whole game.
    */
   loadNextPair: async () => {
     const state = get();
@@ -134,7 +142,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    const { filters, round, currentPair } = state;
+    const { filters, round, currentPair, seenIds } = state;
     const isFirstRound = round === 0 || !currentPair;
 
     set({ loadingPair: true, showResult: false, lastResult: null });
@@ -144,7 +152,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         const res = await fetch('/api/bangumi', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...filters, count: 2 }),
+          body: JSON.stringify({
+            ...filters,
+            count: 2,
+            excludeIds: seenIds,
+          }),
         });
         if (!res.ok) {
           const err = (await res.json().catch(() => ({}))) as {
@@ -156,6 +168,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           pair: AnimeListItem[];
           poolSize: number;
         };
+        const newSeenIds = Array.from(
+          new Set([...seenIds, data.pair[0].id, data.pair[1].id]),
+        );
         set({
           currentPair: data.pair,
           aIsCarryOver: false,
@@ -163,10 +178,12 @@ export const useGameStore = create<GameState>((set, get) => ({
           round: get().round + 1,
           showResult: false,
           lastResult: null,
+          seenIds: newSeenIds,
         });
       } else {
-        // Carry previous B → new A. Exclude previous B's id so the new B
-        // is a different anime.
+        // Chain mode: carry previous B → new A. Exclude all previously
+        // seen ids (which naturally includes the carried A) when fetching
+        // a fresh B.
         const previousB = currentPair[1];
         const res = await fetch('/api/bangumi', {
           method: 'POST',
@@ -174,7 +191,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           body: JSON.stringify({
             ...filters,
             count: 1,
-            excludeId: previousB.id,
+            excludeIds: seenIds,
           }),
         });
         if (!res.ok) {
@@ -187,6 +204,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           anime: AnimeListItem;
           poolSize: number;
         };
+        const newSeenIds = Array.from(
+          new Set([...seenIds, data.anime.id]),
+        );
         set({
           currentPair: [previousB, data.anime],
           aIsCarryOver: true,
@@ -194,6 +214,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           round: get().round + 1,
           showResult: false,
           lastResult: null,
+          seenIds: newSeenIds,
         });
       }
     } catch (err) {
@@ -288,6 +309,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       correctCount: 0,
       wrongCount: 0,
       correctSinceLastHeal: 0,
+      seenIds: [],
       currentPair: null,
       aIsCarryOver: false,
       loadingPair: false,
