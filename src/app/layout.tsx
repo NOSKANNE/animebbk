@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "二次元比比看 - Anime Battle",
+  title: "二次元比比看 - AnimeBBK",
   description: "随机抽取两部番剧，挑战你的眼力！选出 Bangumi 评分更高的一部，支持单人血量制生存赛和好友联机对战。",
   keywords: ["Bangumi", "番剧", "二次元", "比比看", "评分对战", "anime battle", "小游戏"],
   authors: [{ name: "二次元比比看" }],
