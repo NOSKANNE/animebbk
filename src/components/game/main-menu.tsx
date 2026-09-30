@@ -29,10 +29,10 @@ export default function MainMenu({ onModeSelect }: MainMenuProps) {
       </motion.div>
 
       <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-rose-600 via-pink-600 to-amber-500 bg-clip-text text-transparent">
-        番剧评分对战
+        二次元比比看
       </h1>
       <p className="mt-3 max-w-xl text-sm sm:text-base text-muted-foreground">
-        随机抽取两部番剧的封面，挑战你的眼力——选出 Bangumi 评分更高的一部！单人血量制生存赛 + 好友联机对战，支持年份 / 评分区间 / 评分人数筛选。
+        随机抽取两部番剧的封面，挑战你的眼力——选出 Bangumi 评分更高的一部！单人血量制生存赛 + 好友联机对战，支持年份 / 评分区间 / 评分人数 / 番剧类型筛选。
       </p>
 
       {/* Mode cards */}

@@ -111,7 +111,7 @@ async function fetchAnimeBatch(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'User-Agent': 'anime-battle-game/1.0 (https://github.com/anime-battle)',
+      'User-Agent': 'animebbk/1.0 (二次元比比看, https://github.com/NOSKANNE/animebbk)',
       Accept: 'application/json',
     },
     body: JSON.stringify(body),

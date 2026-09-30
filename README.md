@@ -1,7 +1,7 @@
-# 🎴 番剧评分对战 · Anime Battle
+# 🎴 二次元比比看 · Anime Battle
 
 > 从 [Bangumi 番组计划](https://bgm.tv/) 实时获取番剧封面与评分，挑战你的眼力——选出评分更高的一部！  
-> 单人血量制生存赛 + 好友联机对战，支持年份 / 评分区间 / 评分人数三维筛选。
+> 单人血量制生存赛 + 好友联机对战，支持年份 / 评分区间 / 评分人数 / 番剧类型四维筛选。
 
 ![status](https://img.shields.io/badge/status-active-rose.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)
@@ -86,10 +86,10 @@
 
 ```bash
 git clone https://github.com/NOSKANNE/animebbk.git
-cd anime-battle
+cd animebbk
 ```
 
-> ⚠️ 把 `NOSKANNE/animebbk` 替换为你实际的仓库路径。
+> ⚠️ 把 `NOSKANNE/animebbk` 替换为你实际的仓库路径（仓库名仍叫 animebbk，但应用名是「二次元比比看」）。
 
 ### 2. 安装依赖
 
@@ -133,7 +133,7 @@ bun run dev
 ## 📁 项目结构
 
 ```
-anime-battle/
+animebbk/  （二次元比比看）
 ├── src/
 │   ├── app/
 │   │   ├── page.tsx                 # 主页面（模式切换）
@@ -207,7 +207,7 @@ pm2 start "bun mini-services/multiplayer-service/dist.js" --name anime-mp
 pm2 save && pm2 startup
 
 # 3. 配置 Caddy（编辑 /etc/caddy/Caddyfile）
-# animebbk.example.com { ... } 参考仓库根目录的 Caddyfile
+# your-domain.com { ... } 参考仓库根目录的 Caddyfile
 
 sudo systemctl reload caddy
 ```
@@ -238,12 +238,12 @@ services:
 
 ```bash
 # 主站健康
-curl https://animebbk.example.com/api/bangumi \
+curl https://your-domain.com/api/bangumi \
   -X POST -H "Content-Type: application/json" \
   -d '{"count":2,"yearStart":2020,"yearEnd":2024,"minRatingCount":100}'
 
 # WebSocket 握手
-curl -i "https://animebbk.example.com/?XTransformPort=3003&EIO=4&transport=polling"
+curl -i "https://your-domain.com/?XTransformPort=3003&EIO=4&transport=polling"
 # 期望：HTTP 200 + {"sid":"...","upgrades":["websocket"]}
 ```
 
